@@ -4,4 +4,5 @@ import com.aleksaxe.presonalassistent.presonalassistent.model.ChatStatusEnum;
 
 public interface EventService {
     String createEvent(ChatStatusEnum chatStatusEnum, long chatId, String text);
+    String todayEvents(long chatId);
 }

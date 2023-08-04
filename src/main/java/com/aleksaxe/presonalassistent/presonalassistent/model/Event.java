@@ -13,7 +13,7 @@ public class Event {
     @Id
     private String id;
     private String name;
-    private LocalDateTime date;
+    private LocalDateTime eventDate;
     private Long chatId;
 
     public Event(String name, Long chatId) {
@@ -25,7 +25,7 @@ public class Event {
     public String toString() {
         return "Event{" +
                 "name='" + name + '\'' +
-                ", date=" + date +
+                ", date=" + eventDate +
                 '}';
     }
 }

@@ -13,8 +13,12 @@ public class EventScheduler {
     }
 
     @Scheduled(fixedRate = 60000)
-    public void scheduleFixedRateTask() {
+    public void sendNotificationsTask() {
         personalAssistantBot.sendEventNotification();
     }
-    //todo шедулер который будет чистить все события которые уже прошли + создавать историю событий
+
+    @Scheduled(cron = "0 0 5 * * ?")
+    public void clearEventsTask() {
+        personalAssistantBot.clearEvents();
+    }
 }

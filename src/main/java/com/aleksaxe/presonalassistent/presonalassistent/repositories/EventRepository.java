@@ -7,7 +7,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface EventRepository extends MongoRepository<Event, Long> {
-    List<Event> findAllByChatIdAndDateBetweenOrderByDateAsc(Long chatId, LocalDateTime atStartOfDay, LocalDateTime atTime);
+    List<Event> findAllByChatIdAndEventDateBetweenOrderByEventDateAsc(Long chatId, LocalDateTime atStartOfDay, LocalDateTime atTime);
+    List<Event> findAllByEventDateBetween(LocalDateTime from, LocalDateTime to);
+    void deleteByEventDateBefore(LocalDateTime date);
 
-    List<Event> findAllByDateBetween(LocalDateTime from, LocalDateTime to);
 }

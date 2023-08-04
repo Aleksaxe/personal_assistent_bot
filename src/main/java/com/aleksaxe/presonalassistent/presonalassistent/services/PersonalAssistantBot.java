@@ -116,7 +116,7 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
         closeEvents.keySet().forEach(chatId -> {
             List<Event> events = closeEvents.get(chatId);
             events.forEach(event -> {
-                LocalDateTime eventDate = event.getDate();
+                LocalDateTime eventDate = event.getEventDate();
                 LocalDateTime now = LocalDateTime.now();
 
                 // Вычислить разницу во времени между текущим временем и временем события
@@ -134,5 +134,9 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
                 }
             });
         });
+    }
+
+    public void clearEvents() {
+        eventRepository.deleteByEventDateBefore(LocalDateTime.now());
     }
 }

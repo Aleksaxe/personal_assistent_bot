@@ -70,7 +70,7 @@ public class TelegramBotEventService implements EventService {
                 if (event == null) {
                     return "Событие не найдено, попробуйте заново.";
                 }
-                event.setDate(localDateTime);
+                event.setEventDate(localDateTime);
                 eventRepository.save(event);
                 return "Событие забронировано на " + localDateTime;
             }
@@ -111,7 +111,7 @@ public class TelegramBotEventService implements EventService {
                 e -> eventAsString.append(
                                 String.format("\n*Name:* %s\n*Date:* %s",
                                         e.getName(),
-                                        e.getDate()
+                                        e.getEventDate()
                                 )
                         )
                         .append("\n\n"));
@@ -119,7 +119,7 @@ public class TelegramBotEventService implements EventService {
     }
 
     private List<Event> findTodayEvents(Long chatId, LocalDate now) {
-        return eventRepository.findAllByChatIdAndDateBetweenOrderByDateAsc(
+        return eventRepository.findAllByChatIdAndEventDateBetweenOrderByEventDateAsc(
                 chatId,
                 now.atStartOfDay(),
                 now.atTime(LocalTime.MAX)
@@ -129,7 +129,7 @@ public class TelegramBotEventService implements EventService {
     //todo сгрупиировать в строку для отправки ?
     @Override
     public Map<Long, List<Event>> getCloseEvents() {
-        List<Event> events = eventRepository.findAllByDateBetween(
+        List<Event> events = eventRepository.findAllByEventDateBetween(
                 LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES),
                 LocalDateTime.now().plusHours(2)
                         .plusMinutes(2)

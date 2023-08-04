@@ -19,6 +19,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class TelegramBotEventService implements EventService {
@@ -49,7 +50,7 @@ public class TelegramBotEventService implements EventService {
                 //todo апдейтить запись вместо удаления
                 chatStatusRepository.deleteByChatId(chatId);
                 chatStatusRepository.save(new ChatStatus(chatId, ChatStatusEnum.AWAITS_EVENT_DATE));
-                return  """
+                return """
                             Введите дату в одном из следующих видов:
                                 Сегодня в HH mm
                                 Завтра в HH mm
@@ -101,7 +102,7 @@ public class TelegramBotEventService implements EventService {
 
     @Override
     public String todayEvents(long chatId) {
-        return beautifyEventList(findEvent(chatId, LocalDate.now()));
+        return beautifyEventList(findTodayEvents(chatId, LocalDate.now()));
     }
 
     private String beautifyEventList(List<Event> event) {
@@ -117,12 +118,25 @@ public class TelegramBotEventService implements EventService {
         return eventAsString.toString();
     }
 
-    private List<Event> findEvent(Long chatId, LocalDate now) {
+    private List<Event> findTodayEvents(Long chatId, LocalDate now) {
         return eventRepository.findAllByChatIdAndDateBetweenOrderByDateAsc(
                 chatId,
                 now.atStartOfDay(),
                 now.atTime(LocalTime.MAX)
         );
+    }
+
+    //todo сгрупиировать в строку для отправки ?
+    @Override
+    public Map<Long, List<Event>> getCloseEvents() {
+        List<Event> events = eventRepository.findAllByDateBetween(
+                LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES),
+                LocalDateTime.now().plusHours(2)
+                        .plusMinutes(2)
+                        .truncatedTo(ChronoUnit.HOURS)
+        );
+        return events.stream()
+                .collect(Collectors.groupingBy(Event::getChatId));
     }
 
 }

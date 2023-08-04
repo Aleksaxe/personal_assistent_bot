@@ -8,4 +8,6 @@ import java.util.List;
 
 public interface EventRepository extends MongoRepository<Event, Long> {
     List<Event> findAllByChatIdAndDateBetweenOrderByDateAsc(Long chatId, LocalDateTime atStartOfDay, LocalDateTime atTime);
+
+    List<Event> findAllByDateBetween(LocalDateTime from, LocalDateTime to);
 }

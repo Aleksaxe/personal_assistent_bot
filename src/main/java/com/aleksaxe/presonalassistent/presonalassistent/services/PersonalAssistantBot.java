@@ -78,6 +78,7 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
     private void processQuery(ChatStatusEnum chatStatusEnum, Long chatId, String text) {
         switch (chatStatusEnum) {
             case AWAITS_EVENT_NAME, AWAITS_EVENT_DATE -> {
+                //todo update cache
                 sendMessage(chatId,
                         eventService.createEvent(chatStatusEnum, chatId, text)
                 );

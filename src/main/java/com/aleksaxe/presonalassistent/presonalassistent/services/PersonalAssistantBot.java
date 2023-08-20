@@ -6,6 +6,7 @@ import com.aleksaxe.presonalassistent.presonalassistent.model.Event;
 import com.aleksaxe.presonalassistent.presonalassistent.repositories.ChatStatusRepository;
 import com.aleksaxe.presonalassistent.presonalassistent.repositories.EventRepository;
 import com.aleksaxe.presonalassistent.presonalassistent.services.intefaces.EventService;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,8 +45,7 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
         this.eventService = eventService;
     }
 
-    Map<Long, Event> events = new HashMap<>();
-
+    @SneakyThrows
     @Override
     public void onUpdateReceived(Update update) {
         if (!update.hasMessage()) {
@@ -61,7 +61,7 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
         else processQuery(chatStatus.get().getChatStatusEnum(), chatId, text);
     }
 
-    private void newQuery(Long chatId, String text) {
+    private void newQuery(Long chatId, String text) throws TelegramApiException {
         switch (text) {
             case "/start" -> sendMessage(chatId, "Привет! Я твой личный помощник. Я могу показать тебе курсы валют, " +
                     "погоду и т.д. Для этого просто напиши мне что ты хочешь узнать.");
@@ -70,7 +70,13 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
                 sendMessage(chatId, "Как назовем событие?");
             }
             case "/today_event" -> sendMessage(chatId, eventService.todayEvents(chatId));
-            case "/exchange" -> sendMessage(chatId, exchangeCBRService.getUserRates());
+            case "/exchange" -> {
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId.toString());
+                message.setText("Курсы валют:");
+                message.setReplyMarkup(exchangeCBRService.createInlineKeyboardForRates());
+                execute(message);
+            }
             default -> sendMessage(chatId, "Я не знаю такой команды. Попробуй написать /help");
         }
     }
@@ -78,7 +84,6 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
     private void processQuery(ChatStatusEnum chatStatusEnum, Long chatId, String text) {
         switch (chatStatusEnum) {
             case AWAITS_EVENT_NAME, AWAITS_EVENT_DATE -> {
-                //todo update cache
                 sendMessage(chatId,
                         eventService.createEvent(chatStatusEnum, chatId, text)
                 );

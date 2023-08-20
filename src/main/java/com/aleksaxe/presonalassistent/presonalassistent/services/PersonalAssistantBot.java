@@ -69,7 +69,9 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
                 chatStatusRepository.save(new ChatStatus(chatId, ChatStatusEnum.AWAITS_EVENT_NAME));
                 sendMessage(chatId, "Как назовем событие?");
             }
-            case "/today_event" -> sendMessage(chatId, eventService.todayEvents(chatId));
+            case "/today_event" -> {
+                execute(eventService.todayEvents(chatId));
+            }
             case "/exchange" -> {
                 SendMessage message = new SendMessage();
                 message.setChatId(chatId.toString());

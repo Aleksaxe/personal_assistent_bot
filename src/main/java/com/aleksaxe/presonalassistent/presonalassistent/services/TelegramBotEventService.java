@@ -10,12 +10,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -89,7 +93,7 @@ public class TelegramBotEventService implements EventService {
         Cache closeEventsCache = cacheManager.getCache("closeEventsCache");
         if (closeEventsCache != null) {
             Map<Long, List<Event>> closeEvents = getCloseEvents();
-            List<Event> events = closeEvents.get(chatId);
+            List<Event> events = closeEvents.computeIfAbsent(chatId, k -> new ArrayList<>());
             events.add(event);
             closeEvents.put(chatId, events);
             closeEventsCache.put(closeEventsKey, closeEvents);
@@ -116,25 +120,6 @@ public class TelegramBotEventService implements EventService {
         } else {
             throw new IllegalArgumentException("Не удалось распознать дату");
         }
-    }
-
-
-    @Override
-    public String todayEvents(long chatId) {
-        return beautifyEventList(findTodayEvents(chatId, LocalDate.now()));
-    }
-
-    private String beautifyEventList(List<Event> event) {
-        StringBuilder eventAsString = new StringBuilder();
-        event.forEach(
-                e -> eventAsString.append(
-                                String.format("\n*Name:* %s\n*Date:* %s",
-                                        e.getName(),
-                                        e.getEventDate()
-                                )
-                        )
-                        .append("\n\n"));
-        return eventAsString.toString();
     }
 
     private List<Event> findTodayEvents(Long chatId, LocalDate now) {
@@ -169,6 +154,36 @@ public class TelegramBotEventService implements EventService {
         if (closeEventsCache != null) closeEventsCache.put(closeEventsKey, eventsMap);
         log.debug("getCloseEvents from db");
         return eventsMap;
+    }
+
+    @Override
+    public SendMessage todayEvents(long chatId) {
+        SendMessage message = new SendMessage();
+        message.setChatId(String.valueOf(chatId));
+        InlineKeyboardMarkup daily = createInlineKeyboardForEvents(findTodayEvents(chatId, LocalDate.now()));
+        if (daily.getKeyboard().isEmpty()) message.setText("Нет дел на сегодня =D");
+        else message.setText("Грядущие дела:");
+        message.setReplyMarkup(daily);
+        return message;
+    }
+
+    private InlineKeyboardMarkup createInlineKeyboardForEvents(List<Event> events) {
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        for (Event e : events) {
+            List<InlineKeyboardButton> row = new ArrayList<>();
+            String buttonText = e.getName() + " - " + e.getEventDate();
+            String callbackData = "event_info_" + e.getId();  // Предполагая, что у Event есть уникальный ID
+            InlineKeyboardButton button = new InlineKeyboardButton();
+            button.setText(buttonText);
+            button.setCallbackData(callbackData);
+            row.add(button);
+            keyboard.add(row);
+        }
+
+        InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
+        inlineKeyboardMarkup.setKeyboard(keyboard);
+        return inlineKeyboardMarkup;
     }
 
 }

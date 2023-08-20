@@ -3,6 +3,7 @@ package com.aleksaxe.presonalassistent.presonalassistent.scheduler;
 import com.aleksaxe.presonalassistent.presonalassistent.services.PersonalAssistantBot;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 @Service
 public class EventScheduler {

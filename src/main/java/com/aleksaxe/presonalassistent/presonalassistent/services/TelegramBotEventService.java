@@ -167,12 +167,13 @@ public class TelegramBotEventService implements EventService {
         return message;
     }
 
-    private InlineKeyboardMarkup createInlineKeyboardForEvents(List<Event> events) {
+    @Override
+    public InlineKeyboardMarkup createInlineKeyboardForEvents(List<Event> events) {
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
 
         for (Event e : events) {
             List<InlineKeyboardButton> row = new ArrayList<>();
-            String buttonText = e.getName() + " - " + e.getEventDate();
+            String buttonText = e.getName();
             String callbackData = "event_info_" + e.getId();  // Предполагая, что у Event есть уникальный ID
             InlineKeyboardButton button = new InlineKeyboardButton();
             button.setText(buttonText);
@@ -185,5 +186,4 @@ public class TelegramBotEventService implements EventService {
         inlineKeyboardMarkup.setKeyboard(keyboard);
         return inlineKeyboardMarkup;
     }
-
 }

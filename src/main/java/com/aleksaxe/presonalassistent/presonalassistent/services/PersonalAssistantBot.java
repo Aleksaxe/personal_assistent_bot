@@ -15,11 +15,12 @@ import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,14 +71,10 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
                 sendMessage(chatId, "Как назовем событие?");
             }
             case "/today_event" -> {
-                execute(eventService.todayEvents(chatId));
+                sendMessage(eventService.todayEvents(chatId));
             }
             case "/exchange" -> {
-                SendMessage message = new SendMessage();
-                message.setChatId(chatId.toString());
-                message.setText("Курсы валют:");
-                message.setReplyMarkup(exchangeCBRService.createInlineKeyboardForRates());
-                execute(message);
+                sendMessage(createMarkupMessage(chatId, "Курсы валют:", exchangeCBRService.createInlineKeyboardForRates()));
             }
             default -> sendMessage(chatId, "Я не знаю такой команды. Попробуй написать /help");
         }
@@ -99,6 +96,14 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
             execute(new SendMessage(chatId.toString(), s));
         } catch (TelegramApiException e) {
             log.error("Error while sending message to chatId: " + chatId, e);
+        }
+    }
+
+    private void sendMessage(SendMessage sendMessage) {
+        try {
+            execute(sendMessage);
+        } catch (TelegramApiException e) {
+            log.error("Error while sending message to chatId: " + sendMessage.getChatId(), e);
         }
     }
 
@@ -132,13 +137,29 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
 
                 // Проверить, что событие произойдет в течение следующих 2 часов
                 if (duration.toMinutes() == 120) {
-                    sendMessage(event.getChatId(), "Напоминаю, что через 2 часа у вас запланировано событие: " + event.getName());
+                    sendMessage(createMarkupMessage(
+                            chatId,
+                            "Напоминаю, что через 2 часа у вас запланировано событие: " + event.getName(),
+                            eventService.createInlineKeyboardForEvents(Collections.singletonList(event))
+                    ));
                 } else if (duration.toMinutes() == 60) {
-                    sendMessage(event.getChatId(), "Напоминаю, что через 1 час у вас запланировано событие: " + event.getName());
+                    sendMessage(createMarkupMessage(
+                            chatId,
+                            "Напоминаю, что через 1 час у вас запланировано событие: " + event.getName(),
+                            eventService.createInlineKeyboardForEvents(Collections.singletonList(event))
+                    ));
                 } else if (duration.toMinutes() == 30) {
-                    sendMessage(event.getChatId(), "Напоминаю, что через 30 минут у вас запланировано событие: " + event.getName());
+                    sendMessage(createMarkupMessage(
+                            chatId,
+                            "Напоминаю, что через 30 минут у вас запланировано событие: " + event.getName(),
+                            eventService.createInlineKeyboardForEvents(Collections.singletonList(event))
+                    ));
                 } else if (duration.toMinutes() == 10) {
-                    sendMessage(event.getChatId(), "Напоминаю, что через 10 минут у вас запланировано событие: " + event.getName());
+                    sendMessage(createMarkupMessage(
+                            chatId,
+                            "Напоминаю, что через 10 минут у вас запланировано событие: " + event.getName(),
+                            eventService.createInlineKeyboardForEvents(Collections.singletonList(event))
+                    ));
                 }
             });
         });
@@ -146,5 +167,13 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
 
     public void clearEvents() {
         eventRepository.deleteByEventDateBefore(LocalDateTime.now());
+    }
+
+    private SendMessage createMarkupMessage(Long chatId, String text, InlineKeyboardMarkup markup) {
+        SendMessage message = new SendMessage();
+        message.setChatId(chatId.toString());
+        message.setText(text);
+        message.setReplyMarkup(markup);
+        return message;
     }
 }

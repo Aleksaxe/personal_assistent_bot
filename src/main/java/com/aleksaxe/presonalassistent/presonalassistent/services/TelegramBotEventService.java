@@ -6,8 +6,8 @@ import com.aleksaxe.presonalassistent.presonalassistent.model.Event;
 import com.aleksaxe.presonalassistent.presonalassistent.model.User;
 import com.aleksaxe.presonalassistent.presonalassistent.repositories.ChatStatusRepository;
 import com.aleksaxe.presonalassistent.presonalassistent.repositories.EventRepository;
-import com.aleksaxe.presonalassistent.presonalassistent.repositories.UserRepository;
 import com.aleksaxe.presonalassistent.presonalassistent.services.intefaces.EventService;
+import com.aleksaxe.presonalassistent.presonalassistent.services.intefaces.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
@@ -41,8 +41,8 @@ public class TelegramBotEventService implements EventService {
 
     private final ChatStatusRepository chatStatusRepository;
     private final EventRepository eventRepository;
-    private final UserRepository userRepository;
     private final CacheManager cacheManager;
+    private final UserService userService;
     //todo прикрутить редис с временем жизни в 5 - 10мин
     Map<Long, Event> eventsWithoutTime = new HashMap<>();
 
@@ -158,7 +158,7 @@ public class TelegramBotEventService implements EventService {
     public SendMessage todayEvents(long chatId) {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
-        InlineKeyboardMarkup daily = createInlineKeyboardForEvents(findTodayEvents(chatId, LocalDate.now()));
+        InlineKeyboardMarkup daily = createInlineKeyboardForEvents(findTodayEvents(chatId, LocalDate.now()), chatId);
         if (daily.getKeyboard().isEmpty()) message.setText("Нет дел на сегодня =D");
         else message.setText("Грядущие дела:");
         message.setReplyMarkup(daily);
@@ -166,12 +166,16 @@ public class TelegramBotEventService implements EventService {
     }
 
     @Override
-    public InlineKeyboardMarkup createInlineKeyboardForEvents(List<Event> events) {
+    public InlineKeyboardMarkup createInlineKeyboardForEvents(List<Event> events, long chatId) {
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-
+        Optional<User> user = userService.getUserByChatId(chatId);
+        int offset = 0;
+        if (user.isPresent()) {
+            offset = user.get().getTimeZoneOffset();
+        }
         for (Event e : events) {
             List<InlineKeyboardButton> row = new ArrayList<>();
-            String buttonText = e.getName() + " " + e.getEventDate().getHour() + ":" + e.getEventDate().getMinute();
+            String buttonText = e.getName() + " " + e.getEventDate().plusHours(offset).getHour() + ":" + e.getEventDate().getMinute();
             String callbackData = "event_info_" + e.getId();  // Предполагая, что у Event есть уникальный ID
             InlineKeyboardButton button = new InlineKeyboardButton();
             button.setText(buttonText);

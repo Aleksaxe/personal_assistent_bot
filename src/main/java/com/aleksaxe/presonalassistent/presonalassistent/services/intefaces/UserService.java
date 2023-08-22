@@ -1,14 +1,11 @@
 package com.aleksaxe.presonalassistent.presonalassistent.services.intefaces;
 
-import com.aleksaxe.presonalassistent.presonalassistent.model.ChatStatusEnum;
-import com.aleksaxe.presonalassistent.presonalassistent.model.Event;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.objects.Message;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import com.aleksaxe.presonalassistent.presonalassistent.model.User;
 
-import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 
 public interface UserService {
     void setTimeZoneOffset(int timeZoneOffset, long chatId);
+
+    Optional<User> getUserByChatId(Long chatId);
 }

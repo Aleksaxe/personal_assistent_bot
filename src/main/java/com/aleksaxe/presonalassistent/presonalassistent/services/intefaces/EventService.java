@@ -14,6 +14,5 @@ public interface EventService {
     SendMessage todayEvents(long chatId);
 
     Map<Long, List<Event>> getCloseEvents();
-
-    InlineKeyboardMarkup createInlineKeyboardForEvents(List<Event> events);
+    InlineKeyboardMarkup createInlineKeyboardForEvents(List<Event> events, long chatId);
 }

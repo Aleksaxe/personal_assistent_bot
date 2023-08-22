@@ -3,6 +3,7 @@ package com.aleksaxe.presonalassistent.presonalassistent.services;
 import com.aleksaxe.presonalassistent.presonalassistent.model.ChatStatus;
 import com.aleksaxe.presonalassistent.presonalassistent.model.ChatStatusEnum;
 import com.aleksaxe.presonalassistent.presonalassistent.model.Event;
+import com.aleksaxe.presonalassistent.presonalassistent.model.User;
 import com.aleksaxe.presonalassistent.presonalassistent.repositories.ChatStatusRepository;
 import com.aleksaxe.presonalassistent.presonalassistent.repositories.EventRepository;
 import com.aleksaxe.presonalassistent.presonalassistent.services.intefaces.EventService;
@@ -143,7 +144,12 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
         closeEvents.keySet().forEach(chatId -> {
             List<Event> events = closeEvents.get(chatId);
             events.forEach(event -> {
-                LocalDateTime eventDate = event.getEventDate();
+                Optional<User> user = userService.getUserByChatId(chatId);
+                int offset = 0;
+                if (user.isPresent()) {
+                    offset = user.get().getTimeZoneOffset();
+                }
+                LocalDateTime eventDate = event.getEventDate().plusHours(offset);
                 LocalDateTime now = LocalDateTime.now();
 
                 // Вычислить разницу во времени между текущим временем и временем события
@@ -154,25 +160,25 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
                     sendMessage(createMarkupMessage(
                             chatId,
                             "Напоминаю, что через 2 часа у вас запланировано событие: " + event.getName(),
-                            eventService.createInlineKeyboardForEvents(Collections.singletonList(event))
+                            eventService.createInlineKeyboardForEvents(Collections.singletonList(event), chatId)
                     ));
                 } else if (duration.toMinutes() == 60) {
                     sendMessage(createMarkupMessage(
                             chatId,
                             "Напоминаю, что через 1 час у вас запланировано событие: " + event.getName(),
-                            eventService.createInlineKeyboardForEvents(Collections.singletonList(event))
+                            eventService.createInlineKeyboardForEvents(Collections.singletonList(event), chatId)
                     ));
                 } else if (duration.toMinutes() == 30) {
                     sendMessage(createMarkupMessage(
                             chatId,
                             "Напоминаю, что через 30 минут у вас запланировано событие: " + event.getName(),
-                            eventService.createInlineKeyboardForEvents(Collections.singletonList(event))
+                            eventService.createInlineKeyboardForEvents(Collections.singletonList(event), chatId)
                     ));
                 } else if (duration.toMinutes() == 10) {
                     sendMessage(createMarkupMessage(
                             chatId,
                             "Напоминаю, что через 10 минут у вас запланировано событие: " + event.getName(),
-                            eventService.createInlineKeyboardForEvents(Collections.singletonList(event))
+                            eventService.createInlineKeyboardForEvents(Collections.singletonList(event), chatId)
                     ));
                 }
             });

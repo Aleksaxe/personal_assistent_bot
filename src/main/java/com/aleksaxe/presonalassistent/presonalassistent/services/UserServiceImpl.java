@@ -6,6 +6,8 @@ import com.aleksaxe.presonalassistent.presonalassistent.services.intefaces.UserS
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
@@ -14,6 +16,10 @@ public class UserServiceImpl implements UserService {
 
     public User createUser(String name, Long chatId) {
         return userRepository.save(new com.aleksaxe.presonalassistent.presonalassistent.model.User(name, chatId));
+    }
+
+    public Optional<User> getUserByChatId(Long chatId) {
+        return userRepository.findByChatId(chatId);
     }
 
     @Override

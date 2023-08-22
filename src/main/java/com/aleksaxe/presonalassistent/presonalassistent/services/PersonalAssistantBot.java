@@ -6,6 +6,7 @@ import com.aleksaxe.presonalassistent.presonalassistent.model.Event;
 import com.aleksaxe.presonalassistent.presonalassistent.repositories.ChatStatusRepository;
 import com.aleksaxe.presonalassistent.presonalassistent.repositories.EventRepository;
 import com.aleksaxe.presonalassistent.presonalassistent.services.intefaces.EventService;
+import com.aleksaxe.presonalassistent.presonalassistent.services.intefaces.UserService;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +21,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -33,17 +35,19 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
     private final EventRepository eventRepository;
     private final ChatStatusRepository chatStatusRepository;
     private final EventService eventService;
+    private final UserService userService;
 
     @Autowired
     public PersonalAssistantBot(
             @Value("${bot.token}") String botToken,
             ExchangeCBRService exchangeCBRService,
-            EventRepository eventRepository, ChatStatusRepository chatStatusRepository, EventService eventService) {
+            EventRepository eventRepository, ChatStatusRepository chatStatusRepository, EventService eventService, UserService userService) {
         super(botToken);
         this.exchangeCBRService = exchangeCBRService;
         this.eventRepository = eventRepository;
         this.chatStatusRepository = chatStatusRepository;
         this.eventService = eventService;
+        this.userService = userService;
     }
 
     @SneakyThrows
@@ -52,17 +56,16 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
         if (!update.hasMessage()) {
             return;
         }
-
         Message message = update.getMessage();
         Long chatId = message.getChatId();
-        String text = message.getText();
         Optional<ChatStatus> chatStatus = chatStatusRepository.findByChatId(chatId);
         // уже запущен какой-то процесс
-        if (chatStatus.isEmpty()) newQuery(chatId, text);
-        else processQuery(chatStatus.get().getChatStatusEnum(), chatId, text);
+        if (chatStatus.isEmpty()) newQuery(chatId, message);
+        else processQuery(chatStatus.get().getChatStatusEnum(), chatId, message);
     }
 
-    private void newQuery(Long chatId, String text) throws TelegramApiException {
+    private void newQuery(Long chatId, Message message) throws TelegramApiException {
+        String text = message.getText();
         switch (text) {
             case "/start" -> sendMessage(chatId, "Привет! Я твой личный помощник. Я могу показать тебе курсы валют, " +
                     "погоду и т.д. Для этого просто напиши мне что ты хочешь узнать.");
@@ -73,6 +76,11 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
             case "/today_event" -> {
                 sendMessage(eventService.todayEvents(chatId));
             }
+            case "/set_time_zone_offset" -> {
+                chatStatusRepository.save(new ChatStatus(chatId, ChatStatusEnum.AWAITS_TIME_ZONE_OFFSET));
+                sendMessage(chatId, "Укажите часовой пояс для отправки напоминаний\n" +
+                        "Например -6 или +8" );
+            }
             case "/exchange" -> {
                 sendMessage(createMarkupMessage(chatId, "Курсы валют:", exchangeCBRService.createInlineKeyboardForRates()));
             }
@@ -80,12 +88,18 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
         }
     }
 
-    private void processQuery(ChatStatusEnum chatStatusEnum, Long chatId, String text) {
+    private void processQuery(ChatStatusEnum chatStatusEnum, Long chatId, Message message) {
+        chatStatusRepository.deleteByChatId(chatId);
         switch (chatStatusEnum) {
             case AWAITS_EVENT_NAME, AWAITS_EVENT_DATE -> {
                 sendMessage(chatId,
-                        eventService.createEvent(chatStatusEnum, chatId, text)
+                        eventService.createEvent(chatStatusEnum, chatId, message)
                 );
+            }
+            case AWAITS_TIME_ZONE_OFFSET -> {
+                String text = message.getText();
+                userService.setTimeZoneOffset(Integer.parseInt(text), chatId);
+                sendMessage(chatId, "Часовой пояс " + text + " установлен" );
             }
         }
     }

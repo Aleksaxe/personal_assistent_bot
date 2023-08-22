@@ -9,11 +9,6 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import java.util.List;
 import java.util.Map;
 
-public interface EventService {
-    String createEvent(ChatStatusEnum chatStatusEnum, long chatId, Message message);
-    SendMessage todayEvents(long chatId);
-
-    Map<Long, List<Event>> getCloseEvents();
-
-    InlineKeyboardMarkup createInlineKeyboardForEvents(List<Event> events);
+public interface UserService {
+    void setTimeZoneOffset(int timeZoneOffset, long chatId);
 }

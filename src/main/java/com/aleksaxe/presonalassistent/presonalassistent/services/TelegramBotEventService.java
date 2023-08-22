@@ -3,14 +3,18 @@ package com.aleksaxe.presonalassistent.presonalassistent.services;
 import com.aleksaxe.presonalassistent.presonalassistent.model.ChatStatus;
 import com.aleksaxe.presonalassistent.presonalassistent.model.ChatStatusEnum;
 import com.aleksaxe.presonalassistent.presonalassistent.model.Event;
+import com.aleksaxe.presonalassistent.presonalassistent.model.User;
 import com.aleksaxe.presonalassistent.presonalassistent.repositories.ChatStatusRepository;
 import com.aleksaxe.presonalassistent.presonalassistent.repositories.EventRepository;
+import com.aleksaxe.presonalassistent.presonalassistent.repositories.UserRepository;
 import com.aleksaxe.presonalassistent.presonalassistent.services.intefaces.EventService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
@@ -19,14 +23,12 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class TelegramBotEventService implements EventService {
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH mm");
     private static final DateTimeFormatter TODAY_TOMORROW_FORMAT = DateTimeFormatter.ofPattern("'в' HH mm");
@@ -35,27 +37,22 @@ public class TelegramBotEventService implements EventService {
             .parseDefaulting(ChronoField.YEAR, Year.now().getValue())
             .toFormatter();
     private static final DateTimeFormatter FULL_DATE_FORMAT = DateTimeFormatter.ofPattern("dd MM yy HH mm");
-    private static String closeEventsKey = "closeEventsKey";
+    private static final String closeEventsKey = "closeEventsKey";
 
     private final ChatStatusRepository chatStatusRepository;
     private final EventRepository eventRepository;
+    private final UserRepository userRepository;
     private final CacheManager cacheManager;
     //todo прикрутить редис с временем жизни в 5 - 10мин
     Map<Long, Event> eventsWithoutTime = new HashMap<>();
 
-    public TelegramBotEventService(ChatStatusRepository chatStatusRepository, EventRepository eventRepository, CacheManager cacheManager) {
-        this.chatStatusRepository = chatStatusRepository;
-        this.eventRepository = eventRepository;
-        this.cacheManager = cacheManager;
-    }
-
     @Override
-    public String createEvent(ChatStatusEnum chatStatusEnum, long chatId, String text) {
+    public String createEvent(ChatStatusEnum chatStatusEnum, long chatId, Message message) {
+        String text = message.getText();
         switch (chatStatusEnum) {
             case AWAITS_EVENT_NAME -> {
                 eventsWithoutTime.put(chatId, new Event(text, chatId));
                 //todo апдейтить запись вместо удаления
-                chatStatusRepository.deleteByChatId(chatId);
                 chatStatusRepository.save(new ChatStatus(chatId, ChatStatusEnum.AWAITS_EVENT_DATE));
                 return """
                             Введите дату в одном из следующих видов:
@@ -71,7 +68,6 @@ public class TelegramBotEventService implements EventService {
                 if (localDateTime.isBefore(LocalDateTime.now())) {
                     return "Дата уже наступила, попробуйте ввести актуальную дату";
                 }
-                chatStatusRepository.deleteByChatId(chatId);
                 Event event = eventsWithoutTime.get(chatId);
                 eventsWithoutTime.remove(chatId);
                 if (event == null) {
@@ -83,7 +79,9 @@ public class TelegramBotEventService implements EventService {
                     //update cache if
                     updateCloseEventsCache(chatId, event);
                 }
-                return "Событие забронировано на " + localDateTime;
+                return "Событие забронировано на " + localDateTime + "!\n" +
+                        "Напоминаю что событие запланировано в часовом поясе: " + localDateTime + "\n" +
+                        "для смены часового пояса используйте команду /set_time_zone_offset";
             }
             default -> throw new IllegalArgumentException("Неизвестный статус чата");
         }
@@ -173,7 +171,7 @@ public class TelegramBotEventService implements EventService {
 
         for (Event e : events) {
             List<InlineKeyboardButton> row = new ArrayList<>();
-            String buttonText = e.getName();
+            String buttonText = e.getName() + " " + e.getEventDate().getHour() + ":" + e.getEventDate().getMinute();
             String callbackData = "event_info_" + e.getId();  // Предполагая, что у Event есть уникальный ID
             InlineKeyboardButton button = new InlineKeyboardButton();
             button.setText(buttonText);

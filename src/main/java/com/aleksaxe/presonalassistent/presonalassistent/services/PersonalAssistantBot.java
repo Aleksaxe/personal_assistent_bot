@@ -8,7 +8,6 @@ import com.aleksaxe.presonalassistent.presonalassistent.repositories.ChatStatusR
 import com.aleksaxe.presonalassistent.presonalassistent.repositories.EventRepository;
 import com.aleksaxe.presonalassistent.presonalassistent.services.intefaces.EventService;
 import com.aleksaxe.presonalassistent.presonalassistent.services.intefaces.UserService;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,11 +21,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.ZonedDateTime;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @Slf4j
 @Component
@@ -51,7 +46,13 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
         this.userService = userService;
     }
 
-    @SneakyThrows
+    private static final Map<Long, String> REMINDERS = Map.of(
+            120L, "Напоминаю, что через 2 часа у вас запланировано событие: ",
+            60L, "Напоминаю, что через 1 час у вас запланировано событие: ",
+            30L, "Напоминаю, что через 30 минут у вас запланировано событие: ",
+            10L, "Напоминаю, что через 10 минут у вас запланировано событие: "
+    );
+
     @Override
     public void onUpdateReceived(Update update) {
         if (!update.hasMessage()) {
@@ -65,7 +66,7 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
         else processQuery(chatStatus.get().getChatStatusEnum(), chatId, message);
     }
 
-    private void newQuery(Long chatId, Message message) throws TelegramApiException {
+    private void newQuery(Long chatId, Message message) {
         String text = message.getText();
         switch (text) {
             case "/start" -> sendMessage(chatId, "Привет! Я твой личный помощник. Я могу показать тебе курсы валют, " +
@@ -80,7 +81,7 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
             case "/set_time_zone_offset" -> {
                 chatStatusRepository.save(new ChatStatus(chatId, ChatStatusEnum.AWAITS_TIME_ZONE_OFFSET));
                 sendMessage(chatId, "Укажите часовой пояс для отправки напоминаний\n" +
-                        "Например -6 или +8" );
+                        "Например -6 или +8");
             }
             case "/exchange" -> {
                 sendMessage(createMarkupMessage(chatId, "Курсы валют:", exchangeCBRService.createInlineKeyboardForRates()));
@@ -100,7 +101,7 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
             case AWAITS_TIME_ZONE_OFFSET -> {
                 String text = message.getText();
                 userService.setTimeZoneOffset(Integer.parseInt(text), chatId);
-                sendMessage(chatId, "Часовой пояс " + text + " установлен" );
+                sendMessage(chatId, "Часовой пояс " + text + " установлен");
             }
         }
     }
@@ -138,46 +139,19 @@ public class PersonalAssistantBot extends TelegramLongPollingBot {
     }
 
     public void sendEventNotification() {
-        // Получить все ближайшие события для всех пользователей
+        // All close events for all users
         Map<Long, List<Event>> closeEvents = eventService.getCloseEvents();
-
-        closeEvents.keySet().forEach(chatId -> {
-            List<Event> events = closeEvents.get(chatId);
+        closeEvents.forEach((chatId, events) -> {
+            int offset = userService.getUserByChatId(chatId).map(User::getTimeZoneOffset).orElse(0);
             events.forEach(event -> {
-                Optional<User> user = userService.getUserByChatId(chatId);
-                int offset = 0;
-                if (user.isPresent()) {
-                    offset = user.get().getTimeZoneOffset();
-                }
                 LocalDateTime eventDate = event.getEventDate().plusHours(offset);
                 LocalDateTime now = LocalDateTime.now();
+                long minutesDifference = Duration.between(now, eventDate).toMinutes();
 
-                // Вычислить разницу во времени между текущим временем и временем события
-                Duration duration = Duration.between(now, eventDate);
-
-                // Проверить, что событие произойдет в течение следующих 2 часов
-                if (duration.toMinutes() == 120) {
+                if (REMINDERS.containsKey(minutesDifference)) {
                     sendMessage(createMarkupMessage(
                             chatId,
-                            "Напоминаю, что через 2 часа у вас запланировано событие: " + event.getName(),
-                            eventService.createInlineKeyboardForEvents(Collections.singletonList(event), chatId)
-                    ));
-                } else if (duration.toMinutes() == 60) {
-                    sendMessage(createMarkupMessage(
-                            chatId,
-                            "Напоминаю, что через 1 час у вас запланировано событие: " + event.getName(),
-                            eventService.createInlineKeyboardForEvents(Collections.singletonList(event), chatId)
-                    ));
-                } else if (duration.toMinutes() == 30) {
-                    sendMessage(createMarkupMessage(
-                            chatId,
-                            "Напоминаю, что через 30 минут у вас запланировано событие: " + event.getName(),
-                            eventService.createInlineKeyboardForEvents(Collections.singletonList(event), chatId)
-                    ));
-                } else if (duration.toMinutes() == 10) {
-                    sendMessage(createMarkupMessage(
-                            chatId,
-                            "Напоминаю, что через 10 минут у вас запланировано событие: " + event.getName(),
+                            REMINDERS.get(minutesDifference) + event.getName(),
                             eventService.createInlineKeyboardForEvents(Collections.singletonList(event), chatId)
                     ));
                 }
